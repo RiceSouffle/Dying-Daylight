@@ -16,7 +16,16 @@ import DateTimePicker, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettings } from '../../hooks/useSettings';
 import { scheduleDailyNotification, requestPermissions } from '../../lib/notifications';
-import { COLORS, FONTS } from '../../lib/constants';
+import { CLAUDE_MODEL } from '../../lib/anthropic';
+import { parseISODate } from '../../lib/life';
+import { formatDate, formatDateDisplay } from '../../lib/date';
+import { selectionFeedback } from '../../lib/haptics';
+import {
+  COLORS,
+  FONTS,
+  MIN_LIFE_EXPECTANCY,
+  MAX_LIFE_EXPECTANCY,
+} from '../../lib/constants';
 
 export default function SettingsScreen() {
   const { settings, updateSettings, loading } = useSettings();
@@ -24,6 +33,7 @@ export default function SettingsScreen() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showBirthPicker, setShowBirthPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Sync input with loaded settings
@@ -48,7 +58,7 @@ export default function SettingsScreen() {
             'content-type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-5-20250514',
+            model: CLAUDE_MODEL,
             max_tokens: 16,
             messages: [{ role: 'user', content: 'Say "ok"' }],
           }),
@@ -56,10 +66,7 @@ export default function SettingsScreen() {
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
-          Alert.alert(
-            'Invalid API Key',
-            err?.error?.message || `Error ${response.status}`
-          );
+          Alert.alert('Invalid API Key', err?.error?.message || `Error ${response.status}`);
           setSaving(false);
           return;
         }
@@ -95,10 +102,7 @@ export default function SettingsScreen() {
     }
     if (date) {
       const newSettings = await updateSettings({
-        notificationTime: {
-          hour: date.getHours(),
-          minute: date.getMinutes(),
-        },
+        notificationTime: { hour: date.getHours(), minute: date.getMinutes() },
       });
       if (newSettings.notificationsEnabled) {
         await scheduleDailyNotification('Your daily reflection awaits.', newSettings);
@@ -106,9 +110,34 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleBirthDateChange = async (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowBirthPicker(false);
+    }
+    if (event.type === 'dismissed') return;
+    if (date) {
+      await updateSettings({ birthDate: formatDate(date) });
+    }
+  };
+
+  const changeLifeExpectancy = async (delta: number) => {
+    const next = Math.min(
+      MAX_LIFE_EXPECTANCY,
+      Math.max(MIN_LIFE_EXPECTANCY, settings.lifeExpectancyYears + delta)
+    );
+    if (next !== settings.lifeExpectancyYears) {
+      selectionFeedback();
+      await updateSettings({ lifeExpectancyYears: next });
+    }
+  };
+
   const timeDate = new Date();
   timeDate.setHours(settings.notificationTime.hour);
   timeDate.setMinutes(settings.notificationTime.minute);
+
+  const birthDateValue = settings.birthDate
+    ? parseISODate(settings.birthDate)
+    : new Date(new Date().getFullYear() - 30, 0, 1);
 
   const formatTime = (hour: number, minute: number) => {
     const h = hour % 12 || 12;
@@ -141,18 +170,16 @@ export default function SettingsScreen() {
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
+          accessibilityLabel="Anthropic API key"
         />
-        <Text style={styles.hint}>
-          Your key is stored only on this device.
-        </Text>
+        <Text style={styles.hint}>Your key is encrypted and stored only on this device.</Text>
         <Pressable
           style={[styles.button, saving && styles.buttonDisabled]}
           onPress={handleSaveApiKey}
           disabled={saving}
+          accessibilityRole="button"
         >
-          <Text style={styles.buttonText}>
-            {saving ? 'Validating...' : 'Save'}
-          </Text>
+          <Text style={styles.buttonText}>{saving ? 'Validating...' : 'Save'}</Text>
         </Pressable>
       </View>
 
@@ -166,6 +193,7 @@ export default function SettingsScreen() {
             onValueChange={handleToggleNotifications}
             trackColor={{ false: COLORS.darkGray, true: COLORS.gray }}
             thumbColor={COLORS.white}
+            accessibilityLabel="Daily notification"
           />
         </View>
 
@@ -181,12 +209,9 @@ export default function SettingsScreen() {
             />
           ) : (
             <>
-              <Pressable onPress={() => setShowTimePicker(true)}>
-                <Text style={styles.timeText}>
-                  {formatTime(
-                    settings.notificationTime.hour,
-                    settings.notificationTime.minute
-                  )}
+              <Pressable onPress={() => setShowTimePicker(true)} accessibilityRole="button">
+                <Text style={styles.valueText}>
+                  {formatTime(settings.notificationTime.hour, settings.notificationTime.minute)}
                 </Text>
               </Pressable>
               {showTimePicker && (
@@ -202,12 +227,76 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Life Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Life</Text>
+        <Text style={styles.hint}>
+          Your birth date powers the Life view — a quiet map of the weeks you have lived and those
+          that remain.
+        </Text>
+
+        <View style={styles.row}>
+          <Text style={styles.label}>Birth date</Text>
+          {Platform.OS === 'ios' ? (
+            <DateTimePicker
+              value={birthDateValue}
+              mode="date"
+              display="default"
+              maximumDate={new Date()}
+              onChange={handleBirthDateChange}
+              themeVariant="dark"
+            />
+          ) : (
+            <>
+              <Pressable onPress={() => setShowBirthPicker(true)} accessibilityRole="button">
+                <Text style={styles.valueText}>
+                  {settings.birthDate ? formatDateDisplay(settings.birthDate) : 'Set'}
+                </Text>
+              </Pressable>
+              {showBirthPicker && (
+                <DateTimePicker
+                  value={birthDateValue}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date()}
+                  onChange={handleBirthDateChange}
+                />
+              )}
+            </>
+          )}
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.label}>Life expectancy</Text>
+          <View style={styles.stepper}>
+            <Pressable
+              onPress={() => changeLifeExpectancy(-1)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Decrease life expectancy"
+            >
+              <Text style={styles.stepperButton}>−</Text>
+            </Pressable>
+            <Text style={styles.stepperValue}>{settings.lifeExpectancyYears}</Text>
+            <Pressable
+              onPress={() => changeLifeExpectancy(1)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Increase life expectancy"
+            >
+              <Text style={styles.stepperButton}>+</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
       {/* About Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
         <Text style={styles.aboutText}>Dying Daylight</Text>
         <Text style={styles.hint}>
-          Each day, a gentle reminder of something impermanent — a relationship, a season, a phase of life.
+          Each day, a gentle reminder of something impermanent — a relationship, a season, a phase
+          of life.
         </Text>
         <Text style={[styles.hint, { marginTop: 8 }]}>Version 1.0.0</Text>
       </View>
@@ -290,10 +379,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.white,
   },
-  timeText: {
+  valueText: {
     fontFamily: FONTS.regular,
     fontSize: 16,
     color: COLORS.white,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  stepperButton: {
+    fontFamily: FONTS.regular,
+    fontSize: 24,
+    color: COLORS.white,
+    width: 24,
+    textAlign: 'center',
+  },
+  stepperValue: {
+    fontFamily: FONTS.bold,
+    fontSize: 18,
+    color: COLORS.white,
+    minWidth: 32,
+    textAlign: 'center',
   },
   aboutText: {
     fontFamily: FONTS.bold,

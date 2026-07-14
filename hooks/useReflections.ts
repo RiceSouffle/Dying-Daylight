@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAllReflections } from '../lib/storage';
+import { getAllReflections, setReflectionFavorite } from '../lib/storage';
 import { ensureTodayReflection, prefetchTomorrowReflection } from '../lib/reflections';
 import { getTodayDateString } from '../lib/date';
 import type { Reflection } from '../lib/types';
@@ -38,5 +38,29 @@ export function useReflections() {
     loadToday();
   }, [loadToday]);
 
-  return { todayReflection, allReflections, loading, error, retry: loadToday };
+  const toggleFavorite = useCallback(async (date: string) => {
+    // Read the stored value as the source of truth so the flip is correct even
+    // if local state is momentarily stale, then persist and reflect in the UI.
+    const store = await getAllReflections();
+    const current = store[date];
+    if (!current) return;
+    const next = !current.favorite;
+
+    await setReflectionFavorite(date, next);
+    setAllReflections((prev) =>
+      prev.map((r) => (r.date === date ? { ...r, favorite: next } : r))
+    );
+    setTodayReflection((prev) =>
+      prev && prev.date === date ? { ...prev, favorite: next } : prev
+    );
+  }, []);
+
+  return {
+    todayReflection,
+    allReflections,
+    loading,
+    error,
+    retry: loadToday,
+    toggleFavorite,
+  };
 }

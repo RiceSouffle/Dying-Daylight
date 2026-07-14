@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Dimensions,
   ActivityIndicator,
   Pressable,
+  Animated,
+  AccessibilityInfo,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReflections } from '../../hooks/useReflections';
@@ -17,13 +19,41 @@ import type { Reflection } from '../../lib/types';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const { allReflections, loading, error, retry } = useReflections();
+  const { allReflections, loading, error, retry, toggleFavorite } = useReflections();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList<Reflection>>(null);
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  // Fade the reflection in like daylight when it first loads. Skipped when the
+  // user prefers reduced motion.
+  useEffect(() => {
+    if (loading) {
+      opacity.setValue(0);
+      return;
+    }
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduceMotion) => {
+      if (cancelled) return;
+      if (reduceMotion) {
+        opacity.setValue(1);
+      } else {
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }).start();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, opacity]);
 
   const renderItem = useCallback(
-    ({ item }: { item: Reflection }) => <ReflectionCard reflection={item} />,
-    []
+    ({ item }: { item: Reflection }) => (
+      <ReflectionCard reflection={item} onToggleFavorite={toggleFavorite} />
+    ),
+    [toggleFavorite]
   );
 
   const keyExtractor = useCallback((item: Reflection) => item.id, []);
@@ -40,7 +70,7 @@ export default function HomeScreen() {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={retry} style={styles.retryButton}>
+        <Pressable onPress={retry} style={styles.retryButton} accessibilityRole="button">
           <Text style={styles.retryText}>Try Again</Text>
         </Pressable>
       </View>
@@ -51,15 +81,13 @@ export default function HomeScreen() {
     return (
       <View style={[styles.centered, { paddingTop: insets.top }]}>
         <Text style={styles.emptyTitle}>Dying Daylight</Text>
-        <Text style={styles.emptyText}>
-          Your first reflection will appear here.
-        </Text>
+        <Text style={styles.emptyText}>Your first reflection will appear here.</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <Animated.View style={[styles.container, { paddingTop: insets.top, opacity }]}>
       <FlatList
         ref={flatListRef}
         data={allReflections}
@@ -74,7 +102,7 @@ export default function HomeScreen() {
           index,
         })}
       />
-    </View>
+    </Animated.View>
   );
 }
 

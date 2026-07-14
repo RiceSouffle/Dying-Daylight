@@ -18,4 +18,10 @@ export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   notificationTime: { hour: 7, minute: 0 },
   notificationsEnabled: true,
+  birthDate: null,
+  lifeExpectancyYears: 80,
 };
+
+// Sensible bounds for the Life view's life-expectancy input.
+export const MIN_LIFE_EXPECTANCY = 40;
+export const MAX_LIFE_EXPECTANCY = 120;
