@@ -83,7 +83,7 @@ export default function LifeScreen() {
   const rows = Array.from({ length: stats.rows }, (_, i) => i);
   const summaryLabel = `You have lived approximately ${stats.weeksLived.toLocaleString()} weeks, about ${Math.round(
     stats.percentElapsed
-  )} percent of a ${stats.rows}-year life. Approximately ${stats.weeksRemaining.toLocaleString()} weeks remain.`;
+  )} percent of your ${stats.rows} years. Approximately ${stats.weeksRemaining.toLocaleString()} weeks remain.`;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -113,8 +113,8 @@ export default function LifeScreen() {
             </View>
 
             <Text style={styles.caption}>
-              {stats.ageYears} years lived · ~{Math.round(stats.percentElapsed)}% of a{' '}
-              {stats.rows}-year life
+              {stats.ageYears} years lived · ~{Math.round(stats.percentElapsed)}% of your{' '}
+              {stats.rows} years
             </Text>
 
             <View style={styles.legend}>

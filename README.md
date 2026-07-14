@@ -8,12 +8,14 @@ A quiet mobile app that delivers a single daily reflection on impermanence — a
 ## Screenshots
 
 <p align="center">
-  <img src="Screenshot_20260308_130117_Expo_Go.jpg" width="250" alt="Today" />
+  <img src="docs/screenshots/today.png" width="240" alt="Today — the day's reflection, with Keep and Share" />
   &nbsp;&nbsp;
-  <img src="Screenshot_20260308_130123_Expo_Go.jpg" width="250" alt="Archive" />
+  <img src="docs/screenshots/life.png" width="240" alt="Life in Weeks — weeks lived and weeks remaining" />
   &nbsp;&nbsp;
-  <img src="Screenshot_20260308_130132_Expo_Go.jpg" width="250" alt="Settings" />
+  <img src="docs/screenshots/archive.png" width="240" alt="Archive — every past reflection, filterable by Kept" />
 </p>
+
+<p align="center"><em>Today &nbsp;·&nbsp; Life in Weeks &nbsp;·&nbsp; Archive</em></p>
 
 ## The Idea
 
